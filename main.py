@@ -35,7 +35,7 @@ for market in cg.get_coins_markets("usd"):
         while True:
             try:
                 date_string = f"{date.day}-{date.month}-{date.year}"
-                history = cg.get_coin_history_by_id("bitcoin", date_string)
+                history = cg.get_coin_history_by_id(name, date_string)
             except Exception as e:
                 print(e)
                 save_data(data, name)
