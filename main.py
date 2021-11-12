@@ -18,37 +18,47 @@ def load_data(name):
 
 
 def save_data(data, name):
+    print(f"saving data for {name}")
     with open(f"data/{name}.json", "w") as f:
         json.dump(data, f, indent=4)
 
-def last_known_date(data):
-    if data:
-        return sorted(data.keys())[-1]
-    else:
-        return "2015-1-1"
 
 
-for market in cg.get_coins_markets("usd"):
-    name = market["id"]
-    data = load_data(name)
-    for date in datetimerange.DateTimeRange(last_known_date(data), "2021-11-1").range(datetime.timedelta(days=1)):
-        while True:
-            try:
-                date_string = f"{date.day}-{date.month}-{date.year}"
-                history = cg.get_coin_history_by_id(name, date_string)
-            except Exception as e:
-                print(e)
-                save_data(data, name)
-                sleep(30)
+def try_get_historical_data(name):
+    try:
+        return cg.get_coin_market_chart_by_id(name, "usd", "max")
+    except:
+        return None
+
+
+def pull_data_from_coingecko():
+    for page in range(10):
+        print(f"on page {page}")
+        for market in cg.get_coins_markets("usd", per_page=250, page=page):
+            name = market["id"]
+            print(f"processing market {name}")
+            if load_data(name):
+                print("data for {name} already exists")
                 continue
 
-            if "market_data" in history:
-                current_price = history["market_data"]["current_price"]["usd"]
-                market_cap = history["market_data"]["market_cap"]["usd"]
+            historical_data = {}
+            while True:
+                print(f"trying to get historical data for {name}")
+                historical_data = try_get_historical_data(name)
+                if not historical_data:
+                    print("could not get data, sleeping and trying again")
+                    sleep(30)
+                else:
+                    break
 
-                date_string = date.strftime("%Y-%m-%d")
-
+            data = {}
+            for datum in zip(historical_data["prices"], historical_data["market_caps"]):
+                ddate = datetime.datetime.fromtimestamp(datum[0][0]/1000)
+                date_string = ddate.strftime("%Y-%m-%d")
+                current_price = datum[0][1]
+                market_cap = datum[1][1]
                 data[date_string] = {"market_cap": market_cap, "price": current_price} 
-                print(f"Got data for {date_string} for {name}")
-            break
-    save_data(data, name)
+
+            save_data(data, name)
+
+pull_data_from_coingecko()
